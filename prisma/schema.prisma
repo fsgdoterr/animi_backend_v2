@@ -12,3 +12,421 @@ generator client {
 datasource db {
   provider = "postgresql"
 }
+
+enum UserRole {
+  USER
+  MODER
+  ADMIN
+  SUPER_ADMIN
+}
+
+enum UserPermissions {
+  DEF
+}
+
+enum AnimeRating {
+  PG13
+  G
+  Rx
+  R
+  RPlus
+  PG
+}
+
+enum AnimeType {
+  TV
+  MOVIE
+  OVA
+  ONA
+  SPECIAL
+}
+
+enum AnimeStatus {
+  DRAFT
+  ONGOING
+  ANNOUNCED
+  COMPLETED
+  CANCELED
+}
+
+enum EpisodeSourceType {
+  IFRAME
+}
+
+enum DubType {
+  DUB
+  SUB
+}
+
+enum CommentReactionType {
+  LIKE
+  DISLIKE
+}
+
+model User {
+  id Int @id @default(autoincrement())
+  username String @unique
+  email String @unique
+  displayName String?
+  password String
+  avatarId Int?
+  role UserRole @default(USER)
+  permissions UserPermissions @default(DEF)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  sessions Session[]
+  resetPasswords ResetPassword[]
+  avatar Image? @relation(fields: [avatarId], references: [id])
+  reviews Review[]
+  subscriptions Subscription[]
+  comments Comment[]
+  commentReactions CommentReaction[]
+  views View[]
+  playlists Playlist[]
+  createdAnimes Anime[] @relation("AnimeCreatedBy")
+
+  @@index([avatarId])
+  @@index([role])
+  @@index([createdAt])
+}
+
+model Session {
+  id Int @id @default(autoincrement())
+  userId Int
+  hash String @unique
+  userAgent String?
+  ip String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([createdAt])
+}
+
+model ResetPassword {
+  id Int @id @default(autoincrement())
+  userId Int
+  token String @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([createdAt])
+}
+
+model Image {
+  id Int @id @default(autoincrement())
+  path String @unique
+  sourceUrl String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  avatars User[]
+  genres Genre[]
+  animes Anime[]
+  animeAdditionalImages Anime[] @relation("additionalImages")
+
+  @@index([createdAt])
+}
+
+model Playlist {
+  id Int @id @default(autoincrement())
+  userId Int
+  title String
+  items PlaylistItem[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@unique([userId, title])
+}
+
+model PlaylistItem {
+  id Int @id @default(autoincrement())
+  animeId Int
+  order Int
+  playlistId Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  playlist Playlist @relation(fields: [playlistId], references: [id])
+  anime Anime @relation(fields: [animeId], references: [id])
+
+  @@unique([playlistId, animeId])
+  @@unique([playlistId, order])
+  @@index([animeId])
+  @@index([playlistId])
+}
+
+model Anime {
+  id Int @id @default(autoincrement())
+  slug String @unique
+
+  title String
+  originalTitle String?
+  engTitle String?
+
+  posterId Int?
+  additionalImages Image[] @relation("additionalImages")
+
+  rating AnimeRating?
+
+  description String?
+
+  country String?
+
+  genres Genre[]
+
+  releaseDate DateTime?
+  endDate DateTime?
+  episodesTotal Int?
+  duration Int?
+  type AnimeType?
+  status AnimeStatus?
+  studio String?
+  mal String?
+  al String?
+
+  relationId Int?
+  createdById Int?
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  createdBy User? @relation("AnimeCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  poster Image? @relation(fields: [posterId], references: [id])
+  relation Relation? @relation(fields: [relationId], references: [id])
+  episodes Episode[]
+  animeCodes AnimeCode[]
+  reviews Review[]
+  subscriptions Subscription[]
+  comments Comment[]
+  views AnimeView[]
+  playlistItems PlaylistItem[]
+
+  @@index([posterId])
+  @@index([relationId])
+
+  @@index([status, type, createdAt])
+  @@index([status, createdAt])
+  @@index([type, createdAt])
+  @@index([rating])
+  @@index([releaseDate])
+  @@index([createdAt])
+
+  @@index([title])
+  @@index([originalTitle])
+  @@index([engTitle])
+}
+
+model Genre {
+  id Int @id @default(autoincrement())
+  slug String @unique
+  title String
+  posterId Int?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  poster Image? @relation(fields: [posterId], references: [id])
+  animes Anime[]
+
+  @@index([posterId])
+}
+
+model Episode {
+  id Int @id @default(autoincrement())
+  animeId Int
+  number Int
+  title String?
+  variants EpisodeVariant[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  anime Anime @relation(fields: [animeId], references: [id], onDelete: Cascade)
+
+  @@unique([animeId, number])
+  @@index([animeId])
+}
+
+model EpisodeVariant {
+  id Int @id @default(autoincrement())
+  episodeId Int
+  sourceType EpisodeSourceType
+  endpoint String
+  dubType DubType
+  dubTeamId Int
+  playerId Int
+  isActive Boolean @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  dubTeam DubTeam @relation(fields: [dubTeamId], references: [id])
+  player Player @relation(fields: [playerId], references: [id])
+  episode Episode @relation(fields: [episodeId], references: [id], onDelete: Cascade)
+
+  @@index([episodeId])
+  @@index([dubTeamId])
+  @@index([playerId])
+  @@index([playerId, dubTeamId])
+  @@index([episodeId, isActive])
+
+  @@unique([episodeId, dubType, dubTeamId, playerId])
+}
+
+model Player {
+  id Int @id @default(autoincrement())
+  title String @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  episodeVariants EpisodeVariant[]
+
+  @@index([createdAt])
+}
+
+model DubTeam {
+  id Int @id @default(autoincrement())
+  title String @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  episodeVariants EpisodeVariant[]
+
+  @@index([createdAt])
+}
+
+model Relation {
+  id Int @id @default(autoincrement())
+
+  animes Anime[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model AnimeCode {
+  id Int @id @default(autoincrement())
+  animeId Int
+  code String @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  anime Anime @relation(fields: [animeId], references: [id], onDelete: Cascade)
+  views AnimeCodeView[]
+
+  @@index([animeId])
+  @@index([code])
+}
+
+model Review {
+  id Int @id @default(autoincrement())
+  userId Int
+  animeId Int
+  rating Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  anime Anime @relation(fields: [animeId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, animeId])
+  @@index([animeId])
+  @@index([userId])
+}
+
+model Subscription {
+  id Int @id @default(autoincrement())
+  userId Int
+  animeId Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  anime Anime @relation(fields: [animeId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, animeId])
+  @@index([animeId])
+  @@index([userId])
+}
+
+model View {
+  id Int @id @default(autoincrement())
+  userId Int?
+  ip String?
+  userAgent String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+  animeView AnimeView?
+  animeCodeView AnimeCodeView?
+
+  @@index([userId, createdAt])
+  @@index([ip, createdAt])
+  @@index([createdAt])
+}
+
+model AnimeView {
+  id Int @id @default(autoincrement())
+  viewId Int @unique
+  animeId Int
+
+  view View @relation(fields: [viewId], references: [id], onDelete: Cascade)
+  anime Anime @relation(fields: [animeId], references: [id], onDelete: Cascade)
+
+  @@index([animeId])
+}
+
+model AnimeCodeView {
+  id Int @id @default(autoincrement())
+  viewId Int @unique
+  animeCodeId Int
+
+  view View @relation(fields: [viewId], references: [id], onDelete: Cascade)
+  animeCode AnimeCode @relation(fields: [animeCodeId], references: [id], onDelete: Cascade)
+
+  @@index([animeCodeId])
+}
+
+model Comment {
+  id Int @id @default(autoincrement())
+  animeId Int
+  userId Int
+  parentId Int?
+  text String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  anime Anime @relation(fields: [animeId], references: [id], onDelete: Cascade)
+  parent Comment? @relation("CommentHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
+  subComments Comment[] @relation("CommentHierarchy")
+  commentReactions CommentReaction[]
+
+  @@index([animeId, createdAt])
+  @@index([parentId, createdAt])
+  @@index([userId])
+}
+
+model CommentReaction {
+  id Int @id @default(autoincrement())
+  userId Int
+  commentId Int
+  type CommentReactionType
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  comment Comment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, commentId])
+  @@index([commentId])
+  @@index([userId])
+}
