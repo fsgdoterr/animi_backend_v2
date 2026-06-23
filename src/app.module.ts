@@ -5,6 +5,7 @@ import { ThrottlerModule } from '@nestjs/throttler';
 import { PrismaModule } from './common/database/prisma/prisma.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { APP_INTERCEPTOR, Reflector } from '@nestjs/core';
+import { DubteamModule } from './modules/dubteam/dubteam.module';
 
 @Module({
     imports: [
@@ -23,6 +24,7 @@ import { APP_INTERCEPTOR, Reflector } from '@nestjs/core';
         }),
         PrismaModule,
         AuthModule,
+        DubteamModule,
     ],
     controllers: [],
     providers: [
