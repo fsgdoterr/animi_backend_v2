@@ -71,7 +71,7 @@ model User {
   password String
   avatarId Int?
   role UserRole @default(USER)
-  permissions UserPermissions @default(DEF)
+  permissions UserPermissions[] @default([DEF])
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -97,6 +97,7 @@ model Session {
   hash String @unique
   userAgent String?
   ip String?
+  expiresAt DateTime
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
