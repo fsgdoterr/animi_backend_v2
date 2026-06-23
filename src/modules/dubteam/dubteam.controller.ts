@@ -20,7 +20,7 @@ import { instanceToPlain } from 'class-transformer';
 import { DubTeamEntity } from '../../common/entities/dubteam.entity';
 import { UpdateDubteamDto } from './dto/update-dubteam.dto';
 import { DubTeamFiltersDto } from './dto/dubteam-filters.dto';
-import { setPaginationHeaders } from '../../common/pagination';
+import { ExposePaginationHeaders, setPaginationHeaders } from '../../common/pagination';
 import { type Response } from 'express';
 
 @Controller('dubteam')
@@ -39,6 +39,7 @@ export class DubteamController {
     }
 
     @Get()
+    @ExposePaginationHeaders()
     async findAll(
         @Res({ passthrough: true }) res: Response,
         @Query() filters: DubTeamFiltersDto,

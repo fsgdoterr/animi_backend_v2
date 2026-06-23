@@ -8,35 +8,35 @@ import {
     Delete,
     UseGuards,
     ParseIntPipe,
-    Query,
     Res,
+    Query,
 } from '@nestjs/common';
-import { PlayerService } from './player.service';
-import { CreatePlayerDto } from './dto/create-player.dto';
-import { UpdatePlayerDto } from './dto/update-player.dto';
+import { GenreService } from './genre.service';
+import { CreateGenreDto } from './dto/create-genre.dto';
+import { UpdateGenreDto } from './dto/update-genre.dto';
 import { adminGuards } from '../../common/helpers/admin.accept';
 import { UserRole } from '../../generated/prisma/enums';
 import { Role } from '../../common/decorators/role.decorator';
-import { PlayerEntity } from '../../common/entities/player.entity';
 import { instanceToPlain } from 'class-transformer';
+import { GenreEntity } from '../../common/entities/genre.entity';
+import { type Response } from 'express';
+import { GenreFiltersDto } from './dto/genre-filters.dto';
 import {
     ExposePaginationHeaders,
     setPaginationHeaders,
 } from '../../common/pagination';
-import { PlayerFiltersDto } from './dto/player-filters.dto';
-import { type Response } from 'express';
 
-@Controller('player')
+@Controller('genre')
 @UseGuards(...adminGuards)
 @Role(UserRole.ADMIN)
-export class PlayerController {
-    constructor(private readonly playerService: PlayerService) {}
+export class GenreController {
+    constructor(private readonly genreService: GenreService) {}
 
     @Post()
-    async create(@Body() createPlayerDto: CreatePlayerDto) {
-        const player = await this.playerService.create(createPlayerDto);
+    async create(@Body() createGenreDto: CreateGenreDto) {
+        const genre = await this.genreService.create(createGenreDto);
 
-        return instanceToPlain(new PlayerEntity(player), {
+        return instanceToPlain(new GenreEntity(genre), {
             groups: ['private'],
         });
     }
@@ -45,14 +45,14 @@ export class PlayerController {
     @ExposePaginationHeaders()
     async findAll(
         @Res({ passthrough: true }) res: Response,
-        @Query() filters: PlayerFiltersDto,
+        @Query() filters: GenreFiltersDto,
     ) {
-        const result = await this.playerService.findAll(filters);
+        const result = await this.genreService.findAll(filters);
 
         setPaginationHeaders(res, result);
 
-        return result.items.map((dt) =>
-            instanceToPlain(new PlayerEntity(dt), {
+        return result.items.map((g) =>
+            instanceToPlain(new GenreEntity(g), {
                 groups: ['private'],
             }),
         );
@@ -60,9 +60,9 @@ export class PlayerController {
 
     @Get(':id')
     async findOne(@Param('id', ParseIntPipe) id: number) {
-        const player = await this.playerService.findOne(id);
+        const genre = await this.genreService.findOne(id);
 
-        return instanceToPlain(new PlayerEntity(player), {
+        return instanceToPlain(new GenreEntity(genre), {
             groups: ['private'],
         });
     }
@@ -70,18 +70,18 @@ export class PlayerController {
     @Patch(':id')
     async update(
         @Param('id', ParseIntPipe) id: number,
-        @Body() updatePlayerDto: UpdatePlayerDto,
+        @Body() updateGenreDto: UpdateGenreDto,
     ) {
-        const player = await this.playerService.update(id, updatePlayerDto);
+        const genre = await this.genreService.update(id, updateGenreDto);
 
-        return instanceToPlain(new PlayerEntity(player), {
+        return instanceToPlain(new GenreEntity(genre), {
             groups: ['private'],
         });
     }
 
     @Delete(':id')
     async remove(@Param('id', ParseIntPipe) id: number) {
-        await this.playerService.remove(id);
+        await this.genreService.remove(id);
         return;
     }
 }

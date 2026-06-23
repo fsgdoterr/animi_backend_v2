@@ -7,6 +7,8 @@ import { AuthModule } from './modules/auth/auth.module';
 import { APP_INTERCEPTOR, Reflector } from '@nestjs/core';
 import { DubteamModule } from './modules/dubteam/dubteam.module';
 import { PlayerModule } from './modules/player/player.module';
+import { GenreModule } from './modules/genre/genre.module';
+import { ImageModule } from './modules/image/image.module';
 
 @Module({
     imports: [
@@ -27,6 +29,8 @@ import { PlayerModule } from './modules/player/player.module';
         AuthModule,
         DubteamModule,
         PlayerModule,
+        GenreModule,
+        ImageModule,
     ],
     controllers: [],
     providers: [
