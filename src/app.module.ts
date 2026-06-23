@@ -6,6 +6,7 @@ import { PrismaModule } from './common/database/prisma/prisma.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { APP_INTERCEPTOR, Reflector } from '@nestjs/core';
 import { DubteamModule } from './modules/dubteam/dubteam.module';
+import { PlayerModule } from './modules/player/player.module';
 
 @Module({
     imports: [
@@ -25,6 +26,7 @@ import { DubteamModule } from './modules/dubteam/dubteam.module';
         PrismaModule,
         AuthModule,
         DubteamModule,
+        PlayerModule,
     ],
     controllers: [],
     providers: [
