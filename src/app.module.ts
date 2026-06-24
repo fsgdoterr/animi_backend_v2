@@ -9,6 +9,7 @@ import { DubteamModule } from './modules/dubteam/dubteam.module';
 import { PlayerModule } from './modules/player/player.module';
 import { GenreModule } from './modules/genre/genre.module';
 import { ImageModule } from './modules/image/image.module';
+import { UserModule } from './modules/user/user.module';
 
 @Module({
     imports: [
@@ -31,6 +32,7 @@ import { ImageModule } from './modules/image/image.module';
         PlayerModule,
         GenreModule,
         ImageModule,
+        UserModule,
     ],
     controllers: [],
     providers: [
