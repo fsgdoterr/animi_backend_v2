@@ -3,6 +3,7 @@ import { Expose } from 'class-transformer';
 export class DubTeamEntity {
     id: number;
     title: string;
+    _count?: { episodeVariants: number };
 
     @Expose({ groups: ['private'] })
     createdAt: Date;

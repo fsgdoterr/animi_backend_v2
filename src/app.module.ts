@@ -14,6 +14,7 @@ import { AnimeModule } from './modules/anime/anime.module';
 import { EpisodeModule } from './modules/episode/episode.module';
 import { ProducerModule } from './modules/producer/producer.module';
 import { CodeModule } from './modules/code/code.module';
+import { AdminStatsModule } from './modules/admin-stats/admin-stats.module';
 
 @Module({
     imports: [
@@ -41,6 +42,7 @@ import { CodeModule } from './modules/code/code.module';
         EpisodeModule,
         ProducerModule,
         CodeModule,
+        AdminStatsModule,
     ],
     controllers: [],
     providers: [

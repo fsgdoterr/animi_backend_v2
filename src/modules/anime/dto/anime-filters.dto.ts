@@ -11,6 +11,15 @@ export const animeSortValues = [
 
 export type AnimeSort = (typeof animeSortValues)[number];
 
+export const animeIssueValues = [
+    'missingPoster',
+    'missingDescription',
+    'withoutEpisodes',
+    'withoutActiveVariant',
+] as const;
+
+export type AnimeIssue = (typeof animeIssueValues)[number];
+
 export class AnimeFiltersDto extends SearchPaginationQueryDto {
     @IsOptional()
     @IsString()
@@ -27,4 +36,8 @@ export class AnimeFiltersDto extends SearchPaginationQueryDto {
     @IsOptional()
     @IsIn([...animeSortValues])
     sort?: AnimeSort;
+
+    @IsOptional()
+    @IsIn([...animeIssueValues])
+    issue?: AnimeIssue;
 }

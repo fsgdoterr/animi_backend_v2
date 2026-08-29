@@ -7,6 +7,7 @@ export class GenreEntity {
     title: string;
 
     poster: ImageEntity | null;
+    _count?: { animes: number };
 
     @Expose({ groups: ['private'] })
     createdAt: Date;

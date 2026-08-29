@@ -9,6 +9,12 @@ export class UserEntity {
     avatar: ImageEntity | null;
     createdAt: Date;
     role: UserRole;
+    _count?: {
+        views: number;
+        reviews: number;
+        comments: number;
+        subscriptions: number;
+    };
     
     @Expose({groups: ["private", "me"]})
     email: string;

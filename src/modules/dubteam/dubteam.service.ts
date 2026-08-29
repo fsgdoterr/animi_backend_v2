@@ -110,6 +110,11 @@ export class DubteamService {
                 return [{ createdAt: 'asc' as const }, { id: 'asc' as const }];
             case 'title':
                 return [{ title: 'asc' as const }, { id: 'desc' as const }];
+            case 'usage':
+                return [
+                    { episodeVariants: { _count: 'desc' as const } },
+                    { id: 'desc' as const },
+                ];
             case 'new':
             default:
                 return [

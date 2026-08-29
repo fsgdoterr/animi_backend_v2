@@ -135,6 +135,23 @@ export class AnimeService {
             };
         }
 
+        if (filters.issue) {
+            const issueWhere: Record<NonNullable<AnimeFiltersDto['issue']>, Prisma.AnimeWhereInput> = {
+                missingPoster: { posterId: null },
+                missingDescription: {
+                    OR: [{ description: null }, { description: '' }],
+                },
+                withoutEpisodes: { episodes: { none: {} } },
+                withoutActiveVariant: {
+                    episodes: {
+                        some: { variants: { none: { isActive: true } } },
+                    },
+                },
+            };
+
+            where.AND = issueWhere[filters.issue];
+        }
+
         const result = await paginateById<any>({
             model: this.prisma.anime,
             pagination: filters,

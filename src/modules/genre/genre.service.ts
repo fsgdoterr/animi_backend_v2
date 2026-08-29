@@ -173,6 +173,11 @@ export class GenreService {
                 return [{ createdAt: 'asc' as const }, { id: 'asc' as const }];
             case 'title':
                 return [{ title: 'asc' as const }, { id: 'desc' as const }];
+            case 'anime':
+                return [
+                    { animes: { _count: 'desc' as const } },
+                    { id: 'desc' as const },
+                ];
             case 'new':
             default:
                 return [

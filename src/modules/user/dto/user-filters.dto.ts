@@ -1,7 +1,7 @@
 import { IsIn, IsOptional } from 'class-validator';
 import { SearchPaginationQueryDto } from '../../../common/pagination';
 
-export const userSortValues = ['new', 'old', 'username'] as const;
+export const userSortValues = ['new', 'old', 'username', 'views'] as const;
 export type UserSort = (typeof userSortValues)[number];
 
 export class UserFiltersDto extends SearchPaginationQueryDto {

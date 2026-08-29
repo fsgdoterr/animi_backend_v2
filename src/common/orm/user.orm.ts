@@ -11,6 +11,14 @@ export const UserSelect = {
     },
     role: true,
     permissions: true,
+    _count: {
+        select: {
+            views: true,
+            reviews: true,
+            comments: true,
+            subscriptions: true,
+        },
+    },
     createdAt: true,
     updatedAt: true,
 } satisfies Prisma.UserSelect;

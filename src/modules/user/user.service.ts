@@ -211,6 +211,11 @@ export class UserService {
                 return [{ createdAt: 'asc' as const }, { id: 'asc' as const }];
             case 'username':
                 return [{ username: 'asc' as const }, { id: 'desc' as const }];
+            case 'views':
+                return [
+                    { views: { _count: 'desc' as const } },
+                    { id: 'desc' as const },
+                ];
             case 'new':
             default:
                 return [

@@ -8,6 +8,11 @@ export const GenreSelect = {
     poster: {
         select: ImageSelect
     },
+    _count: {
+        select: {
+            animes: true,
+        },
+    },
     createdAt: true,
     updatedAt: true,
 } satisfies Prisma.GenreSelect;
