@@ -3,7 +3,6 @@ import {
     Injectable,
     InternalServerErrorException,
     NotFoundException,
-    PayloadTooLargeException,
 } from '@nestjs/common';
 
 import { randomUUID } from 'crypto';
@@ -17,10 +16,12 @@ import { Readable } from 'node:stream';
 import { PrismaService } from '../../common/database/prisma/prisma.service';
 import { ImageFiltersListDto } from './dto/image-filters-list.dto';
 import { Image, Prisma } from '../../generated/prisma/client';
-import { ImageSelect } from '../../common/orm/image.orm';
+import { ImageAdminSelect } from '../../common/orm/image.orm';
 import { paginateById } from '../../common/pagination';
 import { validateImageUrl } from '../../common/helpers/validate-image-url';
 import { normalizeHeader } from '../../common/helpers/normalize-header';
+import { CreateImageDto } from './dto/create-image.dto';
+import { UpdateImageDto } from './dto/update-image.dto';
 
 const IMAGE_MIME_EXT: Record<string, string> = {
     'image/jpeg': 'jpg',
@@ -52,60 +53,137 @@ export class ImageService {
         const where: Prisma.ImageWhereInput = {};
 
         if (filters.search) {
-            const animeTitleFilter = filters.search
-                ? {
-                      contains: filters.search,
-                      mode: 'insensitive' as const,
-                  }
-                : undefined;
+            const search = filters.search.trim();
+            const text = { contains: search, mode: 'insensitive' as const };
+            const animeSearchWhere = {
+                OR: [{ title: text }, { originalTitle: text }, { engTitle: text }],
+            };
+            const userSearchWhere = {
+                OR: [
+                    { username: text },
+                    { email: text },
+                    { displayName: text },
+                ],
+            };
 
-            const animeSearchWhere = animeTitleFilter
-                ? {
-                      OR: [
-                          { title: animeTitleFilter },
-                          { originalTitle: animeTitleFilter },
-                          { engTitle: animeTitleFilter },
-                      ],
-                  }
-                : undefined;
+            const searchConditions: Prisma.ImageWhereInput[] = [
+                { path: text },
+                { sourceUrl: text },
+                { animes: { some: animeSearchWhere } },
+                { animeAdditionalImages: { some: animeSearchWhere } },
+                { genres: { some: { title: text } } },
+                { avatars: { some: userSearchWhere } },
+            ];
 
-            where.OR = animeSearchWhere
-                ? [
-                      {
-                          animes: {
-                              some: animeSearchWhere,
-                          },
-                      },
-                      {
-                          animeAdditionalImages: {
-                              some: animeSearchWhere,
-                          },
-                      },
-                  ]
-                : [
-                      {
-                          animes: {
-                              some: {},
-                          },
-                      },
-                      {
-                          animeAdditionalImages: {
-                              some: {},
-                          },
-                      },
-                  ];
+            if (/^\d+$/.test(search)) {
+                searchConditions.unshift({ id: Number(search) });
+            }
+
+            where.OR = searchConditions;
+        }
+
+        if (filters.avatarAllowed !== undefined) {
+            where.isAvatarAllowed = filters.avatarAllowed === 'true';
+        }
+
+        switch (filters.usage) {
+            case 'anime':
+                where.AND = [
+                    {
+                        OR: [
+                            { animes: { some: {} } },
+                            { animeAdditionalImages: { some: {} } },
+                        ],
+                    },
+                ];
+                break;
+            case 'genre':
+                where.genres = { some: {} };
+                break;
+            case 'avatar':
+                where.avatars = { some: {} };
+                break;
+            case 'unused':
+                where.AND = [
+                    ...(Array.isArray(where.AND) ? where.AND : []),
+                    { animes: { none: {} } },
+                    { animeAdditionalImages: { none: {} } },
+                    { genres: { none: {} } },
+                    { avatars: { none: {} } },
+                ];
+                break;
         }
 
         return paginateById({
             model: this.prisma.image,
             pagination: filters,
             where,
-            orderBy: [{ id: 'desc' }],
-            select: ImageSelect,
+            orderBy: [{ id: filters.sort === 'old' ? 'asc' : 'desc' }],
+            select: ImageAdminSelect,
         });
     }
 
-    async createImage(url: string): Promise<Image> {
+    async createManagedImage(dto: CreateImageDto) {
+        const image = await this.createImage(
+            dto.url,
+            dto.isAvatarAllowed ?? false,
+        );
+
+        const createdImage = await this.prisma.image.findUnique({
+            where: { id: image.id },
+            select: ImageAdminSelect,
+        });
+
+        if (!createdImage) {
+            throw new InternalServerErrorException('Не вдалося завантажити створене зображення.');
+        }
+
+        return createdImage;
+    }
+
+    async update(id: number, dto: UpdateImageDto) {
+        const existing = await this.prisma.image.findUnique({
+            where: { id },
+            select: { id: true, isAvatarAllowed: true },
+        });
+        if (!existing) {
+            throw new NotFoundException('Не існує зображення з таким айді.');
+        }
+
+        if (!dto.isAvatarAllowed && existing.isAvatarAllowed) {
+            await this.prisma.$transaction([
+                this.prisma.user.updateMany({
+                    where: { avatarId: id },
+                    data: { avatarId: null },
+                }),
+                this.prisma.image.update({
+                    where: { id },
+                    data: { isAvatarAllowed: false },
+                }),
+            ]);
+        } else {
+            await this.prisma.image.update({
+                where: { id },
+                data: { isAvatarAllowed: dto.isAvatarAllowed },
+            });
+        }
+
+        const updatedImage = await this.prisma.image.findUnique({
+            where: { id },
+            select: ImageAdminSelect,
+        });
+
+        if (!updatedImage) {
+            throw new InternalServerErrorException('Не вдалося завантажити оновлене зображення.');
+        }
+
+        return updatedImage;
+    }
+
+    async createImage(
+        url: string,
+        isAvatarAllowed = false,
+    ): Promise<Image> {
         let imagePath: string | undefined;
         const uploadDir = join(process.cwd(), 'uploads');
 
@@ -116,6 +194,7 @@ export class ImageService {
                 data: {
                     path: imagePath,
                     sourceUrl: url,
+                    isAvatarAllowed,
                 },
             });
             return image;
@@ -124,23 +203,26 @@ export class ImageService {
             if (imagePath) {
                 await this.deleteImageByFileName(imagePath, uploadDir);
             }
+            if (e instanceof BadRequestException) throw e;
             throw new InternalServerErrorException();
         }
     }
 
     async deleteImage(id: number): Promise<boolean> {
+        const existing = await this.prisma.image.findUnique({
+            where: { id },
+            select: { id: true, path: true },
+        });
+        if (!existing) {
+            throw new NotFoundException('Не існує зображення з таким айді.');
+        }
+
         try {
-            const image = await this.prisma.image.delete({
-                where: { id },
-            });
-
-            if (!image) return false;
-
+            await this.prisma.image.delete({ where: { id } });
             await this.deleteImageByFileName(
-                image.path,
+                existing.path,
                 join(process.cwd(), 'uploads'),
             );
-
             return true;
         } catch (e) {
             console.log('Delete image error', e);
@@ -164,6 +246,7 @@ export class ImageService {
         });
         if (!img) return false;
 
+        if (img.isAvatarAllowed) return false;
         if (Object.values(img._count).some((count) => count > 0)) return false;
 
         return await this.deleteImage(id);
@@ -181,7 +264,6 @@ export class ImageService {
                     headers: {
                         'User-Agent':
                             'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-
                         Accept: 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
                         Referer: `${parsedUrl.protocol}//${parsedUrl.hostname}/`,
                     },
@@ -198,7 +280,6 @@ export class ImageService {
             };
         } catch (e: any) {
             console.log('Proxy image error:', e?.message);
-
             throw new InternalServerErrorException('Помилка на сервері.');
         }
     }
@@ -207,17 +288,7 @@ export class ImageService {
         imageUrl: string,
         uploadDir: string,
     ): Promise<string> {
-        let url: URL;
-
-        try {
-            url = new URL(imageUrl);
-        } catch {
-            throw new Error('Невірний URL зображення');
-        }
-
-        if (!['http:', 'https:'].includes(url.protocol)) {
-            throw new Error('Тільки HTTP/HTTPS URL дозволені');
-        }
+        const url = validateImageUrl(imageUrl);
 
         await fs.mkdir(uploadDir, { recursive: true });
 
@@ -241,7 +312,7 @@ export class ImageService {
 
         if (contentType) {
             if (!contentType.startsWith('image/')) {
-                throw new Error('URL не вказує на зображення');
+                throw new BadRequestException('URL не вказує на зображення');
             }
 
             ext = IMAGE_MIME_EXT[contentType];
@@ -256,6 +327,9 @@ export class ImageService {
         }
 
         const buffer = Buffer.from(response.data);
+        if (buffer.length > 20 * 1024 * 1024) {
+            throw new BadRequestException('Зображення завелике. Максимум 20 МБ.');
+        }
 
         const fileName = `${randomUUID()}.${ext}`;
         const filePath = path.join(uploadDir, fileName);
@@ -274,7 +348,6 @@ export class ImageService {
         }
 
         const safeFileName = path.basename(fileName);
-
         const uploadDirPath = path.resolve(uploadDir);
         const filePath = path.resolve(uploadDirPath, safeFileName);
 
@@ -285,7 +358,7 @@ export class ImageService {
         try {
             await fs.unlink(filePath);
             return true;
-        } catch (error: any) {
+        } catch {
             return false;
         }
     }

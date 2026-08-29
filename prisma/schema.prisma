@@ -124,6 +124,7 @@ model Image {
   id Int @id @default(autoincrement())
   path String @unique
   sourceUrl String?
+  isAvatarAllowed Boolean @default(false)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -132,6 +133,7 @@ model Image {
   animes Anime[]
   animeAdditionalImages Anime[] @relation("additionalImages")
 
+  @@index([isAvatarAllowed])
   @@index([createdAt])
 }
 

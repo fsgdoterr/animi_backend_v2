@@ -38,6 +38,8 @@ export class UserService {
                 'Користувач з такою поштою вже існує.',
             );
 
+        await this.ensureAvatarAllowed(avatar);
+
         const hashPassword = await bcrypt.hash(password, 12);
 
         const newUser = await this.prisma.user.create({
@@ -121,6 +123,8 @@ export class UserService {
                 "Користувач з такою поштою або ім'ям вже існує.",
             );
 
+        await this.ensureAvatarAllowed(avatar);
+
         let hashPassword;
         if (password) {
             hashPassword = await bcrypt.hash(password, 12);
@@ -159,6 +163,25 @@ export class UserService {
 
         await this.prisma.user.delete({ where: { id } });
         return;
+    }
+
+    private async ensureAvatarAllowed(avatar?: number | null) {
+        if (avatar == null) return;
+
+        const image = await this.prisma.image.findUnique({
+            where: { id: avatar },
+            select: { id: true, isAvatarAllowed: true },
+        });
+
+        if (!image) {
+            throw new BadRequestException('Обране зображення не існує.');
+        }
+
+        if (!image.isAvatarAllowed) {
+            throw new BadRequestException(
+                'Це зображення не дозволено використовувати як аватар.',
+            );
+        }
     }
 
     async checkUser({

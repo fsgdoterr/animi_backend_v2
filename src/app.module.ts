@@ -13,6 +13,7 @@ import { UserModule } from './modules/user/user.module';
 import { AnimeModule } from './modules/anime/anime.module';
 import { EpisodeModule } from './modules/episode/episode.module';
 import { ProducerModule } from './modules/producer/producer.module';
+import { CodeModule } from './modules/code/code.module';
 
 @Module({
     imports: [
@@ -39,6 +40,7 @@ import { ProducerModule } from './modules/producer/producer.module';
         AnimeModule,
         EpisodeModule,
         ProducerModule,
+        CodeModule,
     ],
     controllers: [],
     providers: [
