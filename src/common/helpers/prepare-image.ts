@@ -12,9 +12,11 @@ export const prepareImage = async (params: {
     image?: string | number | null;
 }) => {
     let preparedImage: { id: number } | undefined;
+    let created = false;
 
     if (params.image && typeof params.image === 'string') {
         preparedImage = await params.service.createImage(params.image);
+        created = true;
     } else if (params.image && typeof params.image === 'number') {
         preparedImage = { id: params.image };
     }
@@ -26,5 +28,5 @@ export const prepareImage = async (params: {
         imagePrismaObj = { disconnect: true };
     }
 
-    return { image: preparedImage, imagePrismaObj };
+    return { image: preparedImage, imagePrismaObj, created };
 };

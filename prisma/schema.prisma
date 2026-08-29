@@ -184,13 +184,16 @@ model Anime {
   country String?
 
   genres Genre[]
+  producers Producer[]
 
   releaseDate DateTime?
   endDate DateTime?
   episodesTotal Int?
+  seasonNumber Int?
+  partNumber Int?
   duration Int?
-  type AnimeType?
-  status AnimeStatus?
+  type AnimeType
+  status AnimeStatus
   studio String?
   mal String?
   al String?
@@ -230,7 +233,7 @@ model Anime {
 model Genre {
   id Int @id @default(autoincrement())
   slug String @unique
-  title String
+  title String @unique
   posterId Int?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -239,6 +242,17 @@ model Genre {
   animes Anime[]
 
   @@index([posterId])
+}
+
+
+model Producer {
+  id Int @id @default(autoincrement())
+  title String @unique
+  animes Anime[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([createdAt])
 }
 
 model Episode {

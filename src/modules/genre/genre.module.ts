@@ -8,5 +8,6 @@ import { ImageModule } from '../image/image.module';
     imports: [AuthModule, ImageModule],
     controllers: [GenreController],
     providers: [GenreService],
+    exports: [GenreService],
 })
 export class GenreModule {}

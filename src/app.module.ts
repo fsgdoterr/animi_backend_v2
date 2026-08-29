@@ -10,6 +10,9 @@ import { PlayerModule } from './modules/player/player.module';
 import { GenreModule } from './modules/genre/genre.module';
 import { ImageModule } from './modules/image/image.module';
 import { UserModule } from './modules/user/user.module';
+import { AnimeModule } from './modules/anime/anime.module';
+import { EpisodeModule } from './modules/episode/episode.module';
+import { ProducerModule } from './modules/producer/producer.module';
 
 @Module({
     imports: [
@@ -33,6 +36,9 @@ import { UserModule } from './modules/user/user.module';
         GenreModule,
         ImageModule,
         UserModule,
+        AnimeModule,
+        EpisodeModule,
+        ProducerModule,
     ],
     controllers: [],
     providers: [
