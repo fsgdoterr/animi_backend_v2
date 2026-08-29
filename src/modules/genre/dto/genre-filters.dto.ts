@@ -1,3 +1,11 @@
+import { IsIn, IsOptional } from 'class-validator';
 import { SearchPaginationQueryDto } from '../../../common/pagination';
 
-export class GenreFiltersDto extends SearchPaginationQueryDto {}
+export const genreSortValues = ['new', 'old', 'title'] as const;
+export type GenreSort = (typeof genreSortValues)[number];
+
+export class GenreFiltersDto extends SearchPaginationQueryDto {
+    @IsOptional()
+    @IsIn([...genreSortValues])
+    sort?: GenreSort;
+}

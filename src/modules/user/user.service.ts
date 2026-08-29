@@ -84,7 +84,7 @@ export class UserService {
             model: this.prisma.user,
             pagination: filters,
             where,
-            orderBy: [{ id: 'desc' }],
+            orderBy: this.getOrderBy(filters.sort),
             select: UserSelect,
         });
     }
@@ -203,5 +203,20 @@ export class UserService {
         }
 
         return !!user;
+    }
+
+    private getOrderBy(sort: UserFiltersDto['sort']) {
+        switch (sort) {
+            case 'old':
+                return [{ createdAt: 'asc' as const }, { id: 'asc' as const }];
+            case 'username':
+                return [{ username: 'asc' as const }, { id: 'desc' as const }];
+            case 'new':
+            default:
+                return [
+                    { createdAt: 'desc' as const },
+                    { id: 'desc' as const },
+                ];
+        }
     }
 }

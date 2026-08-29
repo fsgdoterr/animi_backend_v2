@@ -44,7 +44,7 @@ export class DubteamService {
             model: this.prisma.dubTeam,
             pagination: filters,
             where,
-            orderBy: [{ id: 'desc' }],
+            orderBy: this.getOrderBy(filters.sort),
             select: DubTeamSelect,
         });
     }
@@ -102,5 +102,20 @@ export class DubteamService {
             );
 
         return await this.prisma.dubTeam.delete({ where: { id } });
+    }
+
+    private getOrderBy(sort: DubTeamFiltersDto['sort']) {
+        switch (sort) {
+            case 'old':
+                return [{ createdAt: 'asc' as const }, { id: 'asc' as const }];
+            case 'title':
+                return [{ title: 'asc' as const }, { id: 'desc' as const }];
+            case 'new':
+            default:
+                return [
+                    { createdAt: 'desc' as const },
+                    { id: 'desc' as const },
+                ];
+        }
     }
 }

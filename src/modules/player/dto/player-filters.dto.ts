@@ -1,3 +1,11 @@
+import { IsIn, IsOptional } from 'class-validator';
 import { SearchPaginationQueryDto } from '../../../common/pagination';
 
-export class PlayerFiltersDto extends SearchPaginationQueryDto {}
+export const playerSortValues = ['new', 'old', 'title'] as const;
+export type PlayerSort = (typeof playerSortValues)[number];
+
+export class PlayerFiltersDto extends SearchPaginationQueryDto {
+    @IsOptional()
+    @IsIn([...playerSortValues])
+    sort?: PlayerSort;
+}
