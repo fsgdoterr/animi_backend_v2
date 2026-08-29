@@ -252,8 +252,8 @@ export class AnimeService {
                     rating: dto.rating,
                     description: dto.description,
                     country: dto.country,
-                    releaseDate: dto.releaseDate,
-                    endDate: dto.endDate,
+                    releaseDate: this.normalizeDate(dto.releaseDate),
+                    endDate: this.normalizeDate(dto.endDate),
                     ...typeFields,
                     duration: dto.duration,
                     type: dto.type,
@@ -446,14 +446,30 @@ export class AnimeService {
             rating: dto.rating,
             description: this.nullableText(dto.description),
             country: this.nullableText(dto.country),
-            releaseDate: dto.releaseDate,
-            endDate: dto.endDate,
+            releaseDate: this.normalizeDate(dto.releaseDate),
+            endDate: this.normalizeDate(dto.endDate),
             ...typeFields,
             duration: dto.duration,
             studio: this.nullableText(dto.studio),
             mal: this.nullableText(dto.mal),
             al: this.nullableText(dto.al),
         };
+    }
+
+    private normalizeDate(value: string | null | undefined) {
+        if (value === undefined) return undefined;
+        if (value === null || !value.trim()) return null;
+
+        const normalized = /^\d{4}-\d{2}-\d{2}$/.test(value)
+            ? `${value}T00:00:00.000Z`
+            : value;
+        const date = new Date(normalized);
+
+        if (Number.isNaN(date.getTime())) {
+            throw new BadRequestException('Невірний формат дати.');
+        }
+
+        return date;
     }
 
     async generateUniqueSlug(title: string, excludeId?: number) {

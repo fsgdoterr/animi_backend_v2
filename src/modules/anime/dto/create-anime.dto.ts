@@ -1,4 +1,5 @@
 import {
+    IsDateString,
     IsEnum,
     IsInt,
     IsOptional,
@@ -57,11 +58,11 @@ export class CreateAnimeDto {
     @IsOptional()
     relatedAnimeId?: number | null;
 
-    @IsString()
+    @IsDateString()
     @IsOptional()
     releaseDate?: string | null;
 
-    @IsString()
+    @IsDateString()
     @IsOptional()
     endDate?: string | null;
 
