@@ -13,6 +13,11 @@ export class PublicAnimeController {
         return this.publicAnimeService.home();
     }
 
+    @Get('meta')
+    meta() {
+        return this.publicAnimeService.meta();
+    }
+
     @Get('random')
     random() {
         return this.publicAnimeService.random();

@@ -17,6 +17,7 @@ import { CodeModule } from './modules/code/code.module';
 import { AdminStatsModule } from './modules/admin-stats/admin-stats.module';
 import { PublicAnimeModule } from './modules/public/anime/public-anime.module';
 import { PublicSearchModule } from './modules/public/search/public-search.module';
+import { PublicMetaModule } from './modules/public/meta/public-meta.module';
 
 @Module({
     imports: [
@@ -47,6 +48,7 @@ import { PublicSearchModule } from './modules/public/search/public-search.module
         AdminStatsModule,
         PublicAnimeModule,
         PublicSearchModule,
+        PublicMetaModule,
     ],
     controllers: [],
     providers: [

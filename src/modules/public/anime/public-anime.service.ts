@@ -3,9 +3,20 @@ import { PrismaService } from '../../../common/database/prisma/prisma.service';
 import { ImageSelect } from '../../../common/orm/image.orm';
 import { paginateById } from '../../../common/pagination';
 import { Prisma } from '../../../generated/prisma/client';
-import { AnimeStatus, AnimeType } from '../../../generated/prisma/enums';
-import { getPublicEpisodeStats, type PublicEpisodeStats } from '../common/public-episode-stats';
-import { PublicAnimeFiltersDto, type PublicAnimeSort } from './dto/public-anime-filters.dto';
+import {
+    AnimeRating,
+    AnimeStatus,
+    AnimeType,
+    DubType,
+} from '../../../generated/prisma/enums';
+import {
+    getPublicEpisodeStats,
+    type PublicEpisodeStats,
+} from '../common/public-episode-stats';
+import {
+    PublicAnimeFiltersDto,
+    type PublicAnimeSort,
+} from './dto/public-anime-filters.dto';
 
 const PublicAnimeCardSelect = {
     id: true,
@@ -16,6 +27,12 @@ const PublicAnimeCardSelect = {
     poster: { select: ImageSelect },
     rating: true,
     description: true,
+    country: true,
+    studio: true,
+    producers: {
+        select: { id: true, title: true },
+        orderBy: [{ title: 'asc' as const }],
+    },
     genres: {
         select: {
             id: true,
@@ -54,18 +71,12 @@ const PublicAnimeCardSelect = {
 const PublicAnimeDetailsSelect = {
     ...PublicAnimeCardSelect,
     additionalImages: { select: ImageSelect },
-    country: true,
     endDate: true,
     seasonNumber: true,
     partNumber: true,
     duration: true,
-    studio: true,
     mal: true,
     al: true,
-    producers: {
-        select: { id: true, title: true },
-        orderBy: [{ title: 'asc' as const }],
-    },
 } satisfies Prisma.AnimeSelect;
 
 type SliderRow = {
@@ -97,6 +108,74 @@ export class PublicAnimeService {
         return { slider, latestAnime, latestEpisodes };
     }
 
+    async meta() {
+        const publicAnime = { status: { not: AnimeStatus.DRAFT } } as const;
+
+        const [genres, producers, dubTeams, animeMeta, studioRows] = await Promise.all([
+            this.prisma.genre.findMany({
+                select: { id: true, slug: true, title: true },
+                orderBy: { title: 'asc' },
+            }),
+            this.prisma.producer.findMany({
+                where: {
+                    animes: {
+                        some: { status: { not: AnimeStatus.DRAFT } },
+                    },
+                },
+                select: { id: true, title: true },
+                orderBy: { title: 'asc' },
+            }),
+            this.prisma.dubTeam.findMany({
+                select: { id: true, title: true },
+                orderBy: { title: 'asc' },
+            }),
+            this.prisma.anime.findMany({
+                where: publicAnime,
+                select: {
+                    country: true,
+                    releaseDate: true,
+                },
+            }),
+            this.prisma.anime.findMany({
+                where: {
+                    status: { not: AnimeStatus.DRAFT },
+                    studio: { not: null },
+                },
+                distinct: ['studio'],
+                select: { studio: true },
+            }),
+        ]);
+
+        const countries = [
+            ...new Set(
+                animeMeta.flatMap(({ country }) =>
+                    country?.trim() ? [country.trim()] : [],
+                ),
+            ),
+        ].sort((a, b) => a.localeCompare(b));
+
+        const studios = studioRows
+            .flatMap(({ studio }) => (studio?.trim() ? [studio.trim()] : []))
+            .sort((a, b) => a.localeCompare(b));
+
+        const releaseYears = [
+            ...new Set(
+                animeMeta.flatMap(({ releaseDate }) =>
+                    releaseDate ? [releaseDate.getUTCFullYear()] : [],
+                ),
+            ),
+        ].sort((a, b) => b - a);
+
+        return {
+            genres,
+            producers,
+            dubTeams,
+            countries,
+            studios,
+            releaseYears,
+        };
+    }
+
     async findAll(filters: PublicAnimeFiltersDto) {
         const where = this.publicWhere(filters);
 
@@ -112,15 +191,34 @@ export class PublicAnimeService {
             select: PublicAnimeCardSelect,
         });
 
-        const episodeStats = await getPublicEpisodeStats(
-            this.prisma,
-            result.items.map((anime) => anime.id),
+        const ids = result.items.map((anime) => anime.id);
+        const [episodeStats, reviewStats] = await Promise.all([
+            getPublicEpisodeStats(this.prisma, ids),
+            ids.length
+                ? this.prisma.review.groupBy({
+                      by: ['animeId'],
+                      where: { animeId: { in: ids } },
+                      _avg: { rating: true },
+                  })
+                : [],
+        ]);
+        const averageByAnime = new Map<number, number | null>(
+            reviewStats.map(
+                (stat): [number, number | null] => [
+                    stat.animeId,
+                    stat._avg.rating ?? null,
+                ],
+            ),
         );
 
         return {
             ...result,
             items: result.items.map((anime) =>
-                this.toCard(anime, episodeStats.get(anime.id)),
+                this.toCard(
+                    anime,
+                    episodeStats.get(anime.id),
+                    averageByAnime.get(anime.id) ?? null,
+                ),
             ),
         };
     }
@@ -288,43 +386,99 @@ export class PublicAnimeService {
         const where: Prisma.AnimeWhereInput = {
             status: { not: AnimeStatus.DRAFT },
         };
+        const and: Prisma.AnimeWhereInput[] = [];
 
         const search = filters.search?.trim();
         if (search) {
-            where.AND = [
-                {
-                    OR: [
-                        { title: { contains: search, mode: 'insensitive' } },
-                        { originalTitle: { contains: search, mode: 'insensitive' } },
-                        { engTitle: { contains: search, mode: 'insensitive' } },
-                        { description: { contains: search, mode: 'insensitive' } },
-                    ],
-                },
-            ];
+            and.push({
+                OR: [
+                    { title: { contains: search, mode: 'insensitive' } },
+                    { originalTitle: { contains: search, mode: 'insensitive' } },
+                    { engTitle: { contains: search, mode: 'insensitive' } },
+                    { description: { contains: search, mode: 'insensitive' } },
+                ],
+            });
         }
 
         const statuses = this.enumCsv(filters.status, AnimeStatus).filter(
             (status) => status !== AnimeStatus.DRAFT,
         );
         const types = this.enumCsv(filters.type, AnimeType);
-        const genres = this.csv(filters.genres);
+        const ratings = this.enumCsv(filters.ratings, AnimeRating);
+        const dubTypes = this.enumCsv(filters.dubTypes, DubType);
+        const genreIds = this.intCsv(filters.genres);
+        const excludeGenreIds = this.intCsv(filters.excludeGenres);
+        const countries = this.csv(filters.countries);
+        const studios = this.csv(filters.studios);
+        const producerIds = this.intCsv(filters.producers);
+        const dubTeamIds = this.intCsv(filters.dubTeams);
 
         if (statuses.length) where.status = { in: statuses };
         if (types.length) where.type = { in: types };
-        if (genres.length) {
-            where.genres = {
-                some: {
-                    OR: genres.map((title) => ({
-                        title: { equals: title, mode: 'insensitive' },
-                    })),
-                },
+        if (ratings.length) where.rating = { in: ratings };
+        if (countries.length) where.country = { in: countries };
+        if (studios.length) where.studio = { in: studios };
+
+        const releaseFrom = this.releaseBoundary(filters.releaseFrom, false);
+        const releaseTo = this.releaseBoundary(filters.releaseTo, true);
+
+        if (releaseFrom || releaseTo) {
+            where.releaseDate = {
+                ...(releaseFrom ? { gte: releaseFrom } : {}),
+                ...(releaseTo ? { lt: releaseTo } : {}),
             };
         }
 
+        if (genreIds.length) {
+            and.push({
+                genres: {
+                    some: { id: { in: genreIds } },
+                },
+            });
+        }
+        if (excludeGenreIds.length) {
+            and.push({
+                genres: {
+                    none: { id: { in: excludeGenreIds } },
+                },
+            });
+        }
+        if (producerIds.length) {
+            and.push({
+                producers: {
+                    some: { id: { in: producerIds } },
+                },
+            });
+        }
+        if (dubTeamIds.length || dubTypes.length) {
+            and.push({
+                episodes: {
+                    some: {
+                        variants: {
+                            some: {
+                                isActive: true,
+                                ...(dubTypes.length
+                                    ? { dubType: { in: dubTypes } }
+                                    : {}),
+                                ...(dubTeamIds.length
+                                    ? { dubTeamId: { in: dubTeamIds } }
+                                    : {}),
+                            },
+                        },
+                    },
+                },
+            });
+        }
+
+        if (and.length) where.AND = and;
         return where;
     }
 
-    private toCard(anime: any, episodeStats?: PublicEpisodeStats) {
+    private toCard(
+        anime: any,
+        episodeStats?: PublicEpisodeStats,
+        averageReviewRating: number | null = null,
+    ) {
         const latestEpisode = anime.episodes?.[0];
         return {
             id: anime.id,
@@ -335,6 +489,9 @@ export class PublicAnimeService {
             poster: anime.poster,
             rating: anime.rating,
             description: anime.description,
+            country: anime.country,
+            studio: anime.studio,
+            producers: anime.producers ?? [],
             genres: anime.genres,
             releaseDate: anime.releaseDate,
             episodesTotal: anime.episodesTotal,
@@ -350,6 +507,7 @@ export class PublicAnimeService {
                     ),
                 ),
             ],
+            averageReviewRating,
             _count: anime._count,
             createdAt: anime.createdAt,
             updatedAt: anime.updatedAt,
@@ -371,16 +529,54 @@ export class PublicAnimeService {
         }
     }
 
-    private csv(value?: string) {
-        return value
-            ? value
-                  .split(',')
-                  .map((item) => item.trim())
-                  .filter(Boolean)
-            : [];
+    private releaseBoundary(value: string | undefined, isUpperBoundary: boolean) {
+        if (!value) return null;
+
+        if (/^\d{4}$/.test(value)) {
+            const year = Number(value);
+            return new Date(Date.UTC(year + (isUpperBoundary ? 1 : 0), 0, 1));
+        }
+
+        const date = new Date(`${value}T00:00:00.000Z`);
+        return Number.isNaN(date.getTime()) ? null : date;
     }
 
-    private enumCsv<T extends Record<string, string>>(value: string | undefined, source: T) {
+    private csv(value?: string) {
+        if (!value) return [];
+
+        const trimmed = value.trim();
+        if (trimmed.startsWith('[')) {
+            try {
+                const parsed: unknown = JSON.parse(trimmed);
+                if (Array.isArray(parsed)) {
+                    return parsed
+                        .filter(
+                            (item): item is string => typeof item === 'string',
+                        )
+                        .map((item) => item.trim())
+                        .filter(Boolean);
+                }
+            } catch {
+                // Keep backwards compatibility with the existing CSV query format.
+            }
+        }
+
+        return trimmed
+            .split(',')
+            .map((item) => item.trim())
+            .filter(Boolean);
+    }
+
+    private intCsv(value?: string) {
+        return this.csv(value)
+            .map((item) => Number(item))
+            .filter((item) => Number.isInteger(item) && item > 0);
+    }
+
+    private enumCsv<T extends Record<string, string>>(
+        value: string | undefined,
+        source: T,
+    ) {
         const allowed = new Set(Object.values(source));
         return this.csv(value).filter((item) => allowed.has(item)) as T[keyof T][];
     }
