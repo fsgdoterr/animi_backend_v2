@@ -146,6 +146,7 @@ model Playlist {
   title String
   description String?
   imageId Int?
+  isPrivate Boolean @default(false)
   items PlaylistItem[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

@@ -12,6 +12,7 @@ import { AnimeStatus } from '../../../generated/prisma/enums';
 import {
     CreatePublicPlaylistDto,
     CreatePublicPlaylistItemDto,
+    UpdatePublicPlaylistDto,
     UpdatePublicPlaylistItemDto,
 } from './dto/public-user.dto';
 
@@ -32,6 +33,7 @@ const PublicPlaylistSummarySelect = {
     slug: true,
     title: true,
     description: true,
+    isPrivate: true,
     image: { select: ImageSelect },
     createdAt: true,
     updatedAt: true,
@@ -52,13 +54,18 @@ const PublicPlaylistSummarySelect = {
 export class PublicUserService {
     constructor(private readonly prisma: PrismaService) {}
 
-    async profile(username: string) {
+    async profile(username: string, viewerId?: number) {
         const user = await this.getUser(username);
+        const canSeePrivate = viewerId === user.id;
+        const playlistWhere: Prisma.PlaylistWhereInput = {
+            userId: user.id,
+            ...(canSeePrivate ? {} : { isPrivate: false }),
+        };
 
         const [playlists, reviewsCount, commentsCount, listItemsCount] =
             await Promise.all([
                 this.prisma.playlist.findMany({
-                    where: { userId: user.id },
+                    where: playlistWhere,
                     orderBy: [{ updatedAt: 'desc' }, { id: 'desc' }],
                     select: PublicPlaylistSummarySelect,
                 }),
@@ -76,7 +83,7 @@ export class PublicUserService {
                 }),
                 this.prisma.playlistItem.count({
                     where: {
-                        playlist: { userId: user.id },
+                        playlist: playlistWhere,
                         anime: { status: { not: AnimeStatus.DRAFT } },
                     },
                 }),
@@ -97,8 +104,13 @@ export class PublicUserService {
         };
     }
 
-    async activity(username: string, page = 1, limit = 20) {
+    async activity(username: string, page = 1, limit = 20, viewerId?: number) {
         const user = await this.getUser(username);
+        const canSeePrivate = viewerId === user.id;
+        const playlistWhere: Prisma.PlaylistWhereInput = {
+            userId: user.id,
+            ...(canSeePrivate ? {} : { isPrivate: false }),
+        };
         const safePage = Math.max(1, Math.min(page, 50));
         const safeLimit = Math.max(1, Math.min(limit, 30));
         const take = safePage * safeLimit;
@@ -153,7 +165,7 @@ export class PublicUserService {
                     },
                 }),
                 this.prisma.playlist.findMany({
-                    where: { userId: user.id },
+                    where: playlistWhere,
                     orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
                     take,
                     select: {
@@ -165,7 +177,7 @@ export class PublicUserService {
                 }),
                 this.prisma.playlistItem.findMany({
                     where: {
-                        playlist: { userId: user.id },
+                        playlist: playlistWhere,
                         anime: { status: { not: AnimeStatus.DRAFT } },
                     },
                     orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
@@ -201,10 +213,10 @@ export class PublicUserService {
                             },
                         },
                     }),
-                    this.prisma.playlist.count({ where: { userId: user.id } }),
+                    this.prisma.playlist.count({ where: playlistWhere }),
                     this.prisma.playlistItem.count({
                         where: {
-                            playlist: { userId: user.id },
+                            playlist: playlistWhere,
                             anime: { status: { not: AnimeStatus.DRAFT } },
                         },
                     }),
@@ -313,15 +325,20 @@ export class PublicUserService {
         };
     }
 
-    async playlist(username: string, slug: string) {
+    async playlist(username: string, slug: string, viewerId?: number) {
         const user = await this.getUser(username);
         const playlist = await this.prisma.playlist.findFirst({
-            where: { userId: user.id, slug },
+            where: {
+                userId: user.id,
+                slug,
+                ...(viewerId === user.id ? {} : { isPrivate: false }),
+            },
             select: {
                 id: true,
                 slug: true,
                 title: true,
                 description: true,
+                isPrivate: true,
                 image: { select: ImageSelect },
                 createdAt: true,
                 updatedAt: true,
@@ -395,11 +412,31 @@ export class PublicUserService {
                 title,
                 description,
                 imageId,
+                isPrivate: dto.isPrivate ?? false,
             },
             select: PublicPlaylistSummarySelect,
         });
 
         const { items, ...summary } = playlist;
+        return { ...summary, previewAnime: items[0]?.anime ?? null };
+    }
+
+    async updatePlaylist(
+        username: string,
+        slug: string,
+        userId: number,
+        dto: UpdatePublicPlaylistDto,
+    ) {
+        const playlist = await this.getOwnedPlaylist(username, slug, userId);
+        const updated = await this.prisma.playlist.update({
+            where: { id: playlist.id },
+            data: {
+                ...(dto.isPrivate === undefined ? {} : { isPrivate: dto.isPrivate }),
+            },
+            select: PublicPlaylistSummarySelect,
+        });
+
+        const { items, ...summary } = updated;
         return { ...summary, previewAnime: items[0]?.anime ?? null };
     }
 
@@ -441,21 +478,31 @@ export class PublicUserService {
             _max: { order: true },
         });
 
-        return this.prisma.playlistItem.create({
-            data: {
-                playlistId: playlist.id,
-                animeId: dto.animeId,
-                order: (maxOrder._max.order ?? -1) + 1,
-                description: this.normalizeOptionalText(dto.description),
-            },
-            select: {
-                id: true,
-                order: true,
-                description: true,
-                createdAt: true,
-                updatedAt: true,
-                anime: { select: PublicUserAnimeSelect },
-            },
+        return this.prisma.$transaction(async (tx) => {
+            const item = await tx.playlistItem.create({
+                data: {
+                    playlistId: playlist.id,
+                    animeId: dto.animeId,
+                    order: (maxOrder._max.order ?? -1) + 1,
+                    description: this.normalizeOptionalText(dto.description),
+                },
+                select: {
+                    id: true,
+                    order: true,
+                    description: true,
+                    createdAt: true,
+                    updatedAt: true,
+                    anime: { select: PublicUserAnimeSelect },
+                },
+            });
+
+            if (dto.removeFromBookmarks) {
+                await tx.subscription.deleteMany({
+                    where: { userId, animeId: dto.animeId },
+                });
+            }
+
+            return item;
         });
     }
 

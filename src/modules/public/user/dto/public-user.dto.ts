@@ -2,6 +2,7 @@ import {
     ArrayMaxSize,
     ArrayMinSize,
     IsArray,
+    IsBoolean,
     IsInt,
     IsOptional,
     IsString,
@@ -58,6 +59,10 @@ export class CreatePublicPlaylistDto {
     @IsInt()
     @Min(1)
     imageId?: number;
+
+    @IsOptional()
+    @IsBoolean()
+    isPrivate?: boolean;
 }
 
 export class CreatePublicPlaylistItemDto {
@@ -69,6 +74,16 @@ export class CreatePublicPlaylistItemDto {
     @IsString()
     @MaxLength(2000)
     description?: string;
+
+    @IsOptional()
+    @IsBoolean()
+    removeFromBookmarks?: boolean;
+}
+
+export class UpdatePublicPlaylistDto {
+    @IsOptional()
+    @IsBoolean()
+    isPrivate?: boolean;
 }
 
 export class UpdatePublicPlaylistItemDto {

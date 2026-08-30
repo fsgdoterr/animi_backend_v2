@@ -13,6 +13,7 @@ import {
 } from '@nestjs/common';
 import { User } from '../../../common/decorators/user.decorator';
 import { UserEntity } from '../../../common/entities/user.entity';
+import { OptionalSessionAuthGuard } from '../../../common/guards/optional-session-auth.guard';
 import { SessionAuthGuard } from '../../../common/guards/session-auth.guard';
 import {
     CreatePublicPlaylistDto,
@@ -20,6 +21,7 @@ import {
     PublicPlaylistImageQueryDto,
     PublicUserActivityQueryDto,
     ReorderPublicPlaylistItemsDto,
+    UpdatePublicPlaylistDto,
     UpdatePublicPlaylistItemDto,
 } from './dto/public-user.dto';
 import { PublicUserService } from './public-user.service';
@@ -29,19 +31,26 @@ export class PublicUserController {
     constructor(private readonly publicUserService: PublicUserService) {}
 
     @Get(':username')
-    profile(@Param('username') username: string) {
-        return this.publicUserService.profile(username);
+    @UseGuards(OptionalSessionAuthGuard)
+    profile(
+        @Param('username') username: string,
+        @User() viewer?: UserEntity,
+    ) {
+        return this.publicUserService.profile(username, viewer?.id);
     }
 
     @Get(':username/activity')
+    @UseGuards(OptionalSessionAuthGuard)
     activity(
         @Param('username') username: string,
         @Query() query: PublicUserActivityQueryDto,
+        @User() viewer?: UserEntity,
     ) {
         return this.publicUserService.activity(
             username,
             query.page ?? 1,
             query.limit ?? 20,
+            viewer?.id,
         );
     }
 
@@ -63,11 +72,13 @@ export class PublicUserController {
     }
 
     @Get(':username/lists/:slug')
+    @UseGuards(OptionalSessionAuthGuard)
     playlist(
         @Param('username') username: string,
         @Param('slug') slug: string,
+        @User() viewer?: UserEntity,
     ) {
-        return this.publicUserService.playlist(username, slug);
+        return this.publicUserService.playlist(username, slug, viewer?.id);
     }
 
     @Post(':username/lists')
@@ -78,6 +89,17 @@ export class PublicUserController {
         @Body() dto: CreatePublicPlaylistDto,
     ) {
         return this.publicUserService.createPlaylist(username, user.id, dto);
+    }
+
+    @Patch(':username/lists/:slug')
+    @UseGuards(SessionAuthGuard)
+    updatePlaylist(
+        @Param('username') username: string,
+        @Param('slug') slug: string,
+        @User() user: UserEntity,
+        @Body() dto: UpdatePublicPlaylistDto,
+    ) {
+        return this.publicUserService.updatePlaylist(username, slug, user.id, dto);
     }
 
     @Post(':username/lists/:slug/items')
