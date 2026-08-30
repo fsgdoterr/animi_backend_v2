@@ -386,6 +386,31 @@ export class PublicAnimeService {
         return this.toPublicComment(comment, replyTo ? this.toReplyTarget(replyTo) : null);
     }
 
+    async recordView(slug: string, userId: number) {
+        const animeId = await this.getPublicAnimeId(slug);
+        const recentSince = new Date(Date.now() - 30 * 60 * 1000);
+        const existing = await this.prisma.view.findFirst({
+            where: {
+                userId,
+                createdAt: { gte: recentSince },
+                animeView: { is: { animeId } },
+            },
+            select: { id: true },
+        });
+
+        if (existing) return { recorded: false };
+
+        await this.prisma.view.create({
+            data: {
+                userId,
+                animeView: { create: { animeId } },
+            },
+            select: { id: true },
+        });
+
+        return { recorded: true };
+    }
+
     async getMyReview(slug: string, userId: number) {
         const animeId = await this.getPublicAnimeId(slug);
         const review = await this.prisma.review.findUnique({

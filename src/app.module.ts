@@ -18,6 +18,7 @@ import { AdminStatsModule } from './modules/admin-stats/admin-stats.module';
 import { PublicAnimeModule } from './modules/public/anime/public-anime.module';
 import { PublicSearchModule } from './modules/public/search/public-search.module';
 import { PublicMetaModule } from './modules/public/meta/public-meta.module';
+import { PublicUserModule } from './modules/public/user/public-user.module';
 
 @Module({
     imports: [
@@ -49,6 +50,7 @@ import { PublicMetaModule } from './modules/public/meta/public-meta.module';
         PublicAnimeModule,
         PublicSearchModule,
         PublicMetaModule,
+        PublicUserModule,
     ],
     controllers: [],
     providers: [

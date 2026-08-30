@@ -72,6 +72,7 @@ export class ImageService {
                 { animeAdditionalImages: { some: animeSearchWhere } },
                 { genres: { some: { title: text } } },
                 { avatars: { some: userSearchWhere } },
+                { playlistCovers: { some: { title: text } } },
             ];
 
             if (/^\d+$/.test(search)) {
@@ -109,6 +110,7 @@ export class ImageService {
                     { animeAdditionalImages: { none: {} } },
                     { genres: { none: {} } },
                     { avatars: { none: {} } },
+                    { playlistCovers: { none: {} } },
                 ];
                 break;
         }
@@ -239,6 +241,7 @@ export class ImageService {
                         animeAdditionalImages: true,
                         avatars: true,
                         genres: true,
+                        playlistCovers: true,
                     },
                 },
             },

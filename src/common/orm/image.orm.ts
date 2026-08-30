@@ -17,6 +17,7 @@ export const ImageAdminSelect = {
             genres: true,
             animes: true,
             animeAdditionalImages: true,
+            playlistCovers: true,
         },
     },
     avatars: {
@@ -45,6 +46,14 @@ export const ImageAdminSelect = {
         },
     },
     animeAdditionalImages: {
+        take: 4,
+        orderBy: [{ title: 'asc' as const }],
+        select: {
+            id: true,
+            title: true,
+        },
+    },
+    playlistCovers: {
         take: 4,
         orderBy: [{ title: 'asc' as const }],
         select: {

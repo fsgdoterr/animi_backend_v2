@@ -84,6 +84,12 @@ export class PublicAnimeController {
         return this.publicAnimeService.reactToComment(slug, commentId, user.id, dto.type);
     }
 
+    @Post(':slug/view')
+    @UseGuards(SessionAuthGuard)
+    recordView(@Param('slug') slug: string, @User() user: UserEntity) {
+        return this.publicAnimeService.recordView(slug, user.id);
+    }
+
     @Get(':slug/review/me')
     @UseGuards(SessionAuthGuard)
     getMyReview(@Param('slug') slug: string, @User() user: UserEntity) {
