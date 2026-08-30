@@ -132,6 +132,7 @@ model Image {
   genres Genre[]
   animes Anime[]
   animeAdditionalImages Anime[] @relation("additionalImages")
+  homeSliderItems HomeSliderItem[] @relation("HomeSliderImage")
 
   @@index([isAvatarAllowed])
   @@index([createdAt])
@@ -216,6 +217,7 @@ model Anime {
   comments Comment[]
   views AnimeView[]
   playlistItems PlaylistItem[]
+  homeSliderItem HomeSliderItem?
 
   @@index([posterId])
   @@index([relationId])
@@ -230,6 +232,22 @@ model Anime {
   @@index([title])
   @@index([originalTitle])
   @@index([engTitle])
+}
+
+
+model HomeSliderItem {
+  id Int @id @default(autoincrement())
+  animeId Int @unique
+  imageId Int?
+  order Int @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  anime Anime @relation(fields: [animeId], references: [id], onDelete: Cascade)
+  image Image? @relation("HomeSliderImage", fields: [imageId], references: [id], onDelete: SetNull)
+
+  @@index([order])
+  @@index([imageId])
 }
 
 model Genre {

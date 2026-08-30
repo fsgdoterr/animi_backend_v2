@@ -15,6 +15,8 @@ import { EpisodeModule } from './modules/episode/episode.module';
 import { ProducerModule } from './modules/producer/producer.module';
 import { CodeModule } from './modules/code/code.module';
 import { AdminStatsModule } from './modules/admin-stats/admin-stats.module';
+import { PublicAnimeModule } from './modules/public/anime/public-anime.module';
+import { PublicSearchModule } from './modules/public/search/public-search.module';
 
 @Module({
     imports: [
@@ -43,6 +45,8 @@ import { AdminStatsModule } from './modules/admin-stats/admin-stats.module';
         ProducerModule,
         CodeModule,
         AdminStatsModule,
+        PublicAnimeModule,
+        PublicSearchModule,
     ],
     controllers: [],
     providers: [

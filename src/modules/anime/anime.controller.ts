@@ -7,6 +7,7 @@ import {
     ParseIntPipe,
     Patch,
     Post,
+    Put,
     Query,
     Res,
     UseGuards,
@@ -25,6 +26,7 @@ import { AnimeService } from './anime.service';
 import { AnimeFiltersDto } from './dto/anime-filters.dto';
 import { CreateAnimeDto } from './dto/create-anime.dto';
 import { UpdateAnimeDto } from './dto/update-anime.dto';
+import { UpdateHomeSliderDto } from './dto/update-home-slider.dto';
 
 @Controller('anime')
 @UseGuards(...adminGuards)
@@ -56,6 +58,16 @@ export class AnimeController {
                 groups: ['private'],
             }),
         );
+    }
+
+    @Get('home-slider')
+    async getHomeSlider() {
+        return this.animeService.getHomeSlider();
+    }
+
+    @Put('home-slider')
+    async updateHomeSlider(@Body() dto: UpdateHomeSliderDto) {
+        return this.animeService.updateHomeSlider(dto);
     }
 
     @Get(':id')

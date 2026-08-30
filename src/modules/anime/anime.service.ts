@@ -19,6 +19,7 @@ import { ImageService } from '../image/image.service';
 import { AnimeFiltersDto } from './dto/anime-filters.dto';
 import { CreateAnimeDto } from './dto/create-anime.dto';
 import { UpdateAnimeDto } from './dto/update-anime.dto';
+import { UpdateHomeSliderDto } from './dto/update-home-slider.dto';
 
 @Injectable()
 export class AnimeService {
@@ -487,6 +488,106 @@ export class AnimeService {
         }
 
         return date;
+    }
+
+    async getHomeSlider() {
+        type SliderRow = {
+            id: number;
+            animeId: number;
+            imageId: number | null;
+            order: number;
+            imagePath: string | null;
+            imageSourceUrl: string | null;
+            imageAvatarAllowed: boolean | null;
+            imageCreatedAt: Date | null;
+            imageUpdatedAt: Date | null;
+        };
+
+        const rows = await this.prisma.$queryRaw<SliderRow[]>(Prisma.sql`
+            SELECT
+                h."id",
+                h."animeId",
+                h."imageId",
+                h."order",
+                i."path" AS "imagePath",
+                i."sourceUrl" AS "imageSourceUrl",
+                i."isAvatarAllowed" AS "imageAvatarAllowed",
+                i."createdAt" AS "imageCreatedAt",
+                i."updatedAt" AS "imageUpdatedAt"
+            FROM "HomeSliderItem" h
+            LEFT JOIN "Image" i ON i."id" = h."imageId"
+            ORDER BY h."order" ASC, h."id" ASC
+        `);
+
+        if (!rows.length) return [];
+
+        const animes = await this.prisma.anime.findMany({
+            where: { id: { in: rows.map((row) => row.animeId) } },
+            select: AnimeListSelect,
+        });
+        const byId = new Map(animes.map((anime) => [anime.id, anime]));
+
+        return rows.flatMap((row) => {
+            const anime = byId.get(row.animeId);
+            if (!anime) return [];
+
+            return [{
+                id: row.id,
+                order: row.order,
+                anime,
+                image: row.imageId && row.imagePath ? {
+                    id: row.imageId,
+                    path: row.imagePath,
+                    sourceUrl: row.imageSourceUrl,
+                    isAvatarAllowed: row.imageAvatarAllowed ?? false,
+                    createdAt: row.imageCreatedAt,
+                    updatedAt: row.imageUpdatedAt,
+                } : null,
+            }];
+        });
+    }
+
+    async updateHomeSlider(dto: UpdateHomeSliderDto) {
+        const animeIds = dto.items.map((item) => item.animeId);
+        if (new Set(animeIds).size !== animeIds.length) {
+            throw new BadRequestException('Одне аніме не можна додати до слайдера двічі.');
+        }
+
+        if (animeIds.length) {
+            const foundAnimes = await this.prisma.anime.findMany({
+                where: { id: { in: animeIds } },
+                select: { id: true, status: true },
+            });
+            if (foundAnimes.length !== animeIds.length) {
+                throw new BadRequestException('Одне з обраних аніме більше не існує.');
+            }
+            if (foundAnimes.some((anime) => anime.status === AnimeStatus.DRAFT)) {
+                throw new BadRequestException('Чернетки не можна показувати у публічному слайдері.');
+            }
+        }
+
+        const imageIds = [...new Set(dto.items.flatMap((item) => item.imageId ? [item.imageId] : []))];
+        if (imageIds.length) {
+            const imageCount = await this.prisma.image.count({
+                where: { id: { in: imageIds } },
+            });
+            if (imageCount !== imageIds.length) {
+                throw new BadRequestException('Одне з обраних зображень більше не існує.');
+            }
+        }
+
+        await this.prisma.$transaction(async (tx) => {
+            await tx.$executeRaw(Prisma.sql`DELETE FROM "HomeSliderItem"`);
+
+            for (const [order, item] of dto.items.entries()) {
+                await tx.$executeRaw(Prisma.sql`
+                    INSERT INTO "HomeSliderItem" ("animeId", "imageId", "order", "createdAt", "updatedAt")
+                    VALUES (${item.animeId}, ${item.imageId ?? null}, ${order}, NOW(), NOW())
+                `);
+            }
+        });
+
+        return this.getHomeSlider();
     }
 
     async generateUniqueSlug(title: string, excludeId?: number) {
