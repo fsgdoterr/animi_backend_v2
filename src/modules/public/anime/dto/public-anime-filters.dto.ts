@@ -1,7 +1,7 @@
 import { IsIn, IsOptional, IsString, Matches } from 'class-validator';
 import { SearchPaginationQueryDto } from '../../../../common/pagination';
 
-const publicAnimeSortValues = ['new', 'old', 'title', 'release', 'views'] as const;
+const publicAnimeSortValues = ['new', 'old', 'title', 'release', 'popular'] as const;
 export type PublicAnimeSort = (typeof publicAnimeSortValues)[number];
 
 const releaseBoundaryPattern = /^\d{4}(?:-\d{2}-\d{2})?$/;

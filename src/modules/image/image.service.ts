@@ -8,7 +8,6 @@ import {
 import { randomUUID } from 'crypto';
 import { promises as fs } from 'fs';
 import path from 'path';
-import axios from 'axios';
 import { join } from 'node:path';
 import { HttpService } from '@nestjs/axios';
 import { firstValueFrom } from 'rxjs';
@@ -292,11 +291,28 @@ export class ImageService {
 
         await fs.mkdir(uploadDir, { recursive: true });
 
-        const response = await axios.get<ArrayBuffer>(imageUrl, {
-            responseType: 'arraybuffer',
-            timeout: 15_000,
-            validateStatus: (status) => status >= 200 && status < 300,
-        });
+        let response;
+        try {
+            response = await firstValueFrom(
+                this.httpService.get<ArrayBuffer>(url.toString(), {
+                    responseType: 'arraybuffer',
+                    timeout: 15_000,
+                    maxRedirects: 5,
+                    validateStatus: (status) => status >= 200 && status < 300,
+                    headers: {
+                        // A number of image CDNs (including Wikimedia) reject the
+                        // default axios user agent even though the same URL opens in
+                        // a browser. Fetch external images like a normal browser.
+                        'User-Agent':
+                            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                        Accept: 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
+                        Referer: `${url.protocol}//${url.hostname}/`,
+                    },
+                }),
+            );
+        } catch (error) {
+            throw this.createImageFetchException(imageUrl, error);
+        }
 
         const contentTypeRaw =
             typeof response.headers.get === 'function'
@@ -312,7 +328,11 @@ export class ImageService {
 
         if (contentType) {
             if (!contentType.startsWith('image/')) {
-                throw new BadRequestException('URL не вказує на зображення');
+                throw this.createImageFetchException(
+                    imageUrl,
+                    undefined,
+                    'За вказаним URL сервер повернув не зображення.',
+                );
             }
 
             ext = IMAGE_MIME_EXT[contentType];
@@ -328,7 +348,11 @@ export class ImageService {
 
         const buffer = Buffer.from(response.data);
         if (buffer.length > 20 * 1024 * 1024) {
-            throw new BadRequestException('Зображення завелике. Максимум 20 МБ.');
+            throw this.createImageFetchException(
+                imageUrl,
+                undefined,
+                'Зображення завелике. Максимальний розмір — 20 МБ.',
+            );
         }
 
         const fileName = `${randomUUID()}.${ext}`;
@@ -337,6 +361,46 @@ export class ImageService {
         await fs.writeFile(filePath, buffer);
 
         return fileName;
+    }
+
+    private createImageFetchException(
+        imageUrl: string,
+        error?: unknown,
+        customMessage?: string,
+    ) {
+        let message =
+            customMessage ??
+            'Не вдалося отримати зображення за вказаним URL.';
+
+        if (!customMessage && typeof error === 'object' && error !== null) {
+            const requestError = error as {
+                code?: unknown;
+                response?: { status?: unknown };
+            };
+            const code =
+                typeof requestError.code === 'string'
+                    ? requestError.code
+                    : undefined;
+            const status =
+                typeof requestError.response?.status === 'number'
+                    ? requestError.response.status
+                    : undefined;
+
+            if (code === 'ECONNABORTED' || code === 'ETIMEDOUT') {
+                message =
+                    'Не вдалося отримати зображення: віддалений сервер не відповів вчасно.';
+            } else if (status) {
+                message = `Не вдалося отримати зображення: віддалений сервер відповів HTTP ${status}.`;
+            }
+        }
+
+        return new BadRequestException({
+            statusCode: 400,
+            error: 'Bad Request',
+            code: 'IMAGE_FETCH_FAILED',
+            message,
+            imageUrl,
+        });
     }
 
     private async deleteImageByFileName(

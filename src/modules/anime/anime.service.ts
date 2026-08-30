@@ -384,17 +384,30 @@ export class AnimeService {
         const refs: { id: number }[] = [];
         const createdIds: number[] = [];
 
-        for (const image of images) {
-            if (typeof image === 'string') {
-                const created = await this.imageService.createImage(image);
-                refs.push(created);
-                createdIds.push(created.id);
-            } else if (typeof image === 'number') {
-                refs.push({ id: image });
+        try {
+            for (const image of images) {
+                if (typeof image === 'string') {
+                    const created = await this.imageService.createImage(image);
+                    refs.push(created);
+                    createdIds.push(created.id);
+                } else if (typeof image === 'number') {
+                    refs.push({ id: image });
+                }
             }
-        }
 
-        return { refs, createdIds };
+            return { refs, createdIds };
+        } catch (error) {
+            // If one URL fails after previous URLs were downloaded, do not leave
+            // orphaned files/images behind. The form can then safely retry.
+            await Promise.all(
+                createdIds.map((imageId) =>
+                    this.imageService
+                        .deleteImageIfUnused(imageId)
+                        .catch(() => undefined),
+                ),
+            );
+            throw error;
+        }
     }
 
     async prepareGenres(genres: string[]) {
