@@ -20,6 +20,7 @@ import { PublicSearchModule } from './modules/public/search/public-search.module
 import { PublicMetaModule } from './modules/public/meta/public-meta.module';
 import { PublicUserModule } from './modules/public/user/public-user.module';
 import { PublicBookmarkModule } from './modules/public/bookmark/public-bookmark.module';
+import { AnimeImportModule } from './modules/anime-import/anime-import.module';
 
 @Module({
     imports: [
@@ -53,6 +54,7 @@ import { PublicBookmarkModule } from './modules/public/bookmark/public-bookmark.
         PublicMetaModule,
         PublicUserModule,
         PublicBookmarkModule,
+        AnimeImportModule,
     ],
     controllers: [],
     providers: [

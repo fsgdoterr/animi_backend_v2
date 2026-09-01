@@ -24,6 +24,27 @@
     "strictBindCallApply": false,
     "noFallthroughCasesInSwitch": false
   },
-  "include": ["src/**/*.ts"],
-  "exclude": ["node_modules", "dist", "test", "**/*.spec.ts"]
+  "include": [
+    "src/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "test",
+    "**/*.spec.ts"
+  ],
+  "watchOptions": {
+    "watchFile": "fixedPollingInterval",
+    "watchDirectory": "fixedPollingInterval",
+    "fallbackPolling": "fixedInterval",
+    "excludeDirectories": [
+      "**/node_modules",
+      "**/dist/**",
+      "**/storage/**"
+    ],
+    "excludeFiles": [
+      "storage/json/*.json",
+      "storage/json/**/*.json"
+    ]
+  }
 }

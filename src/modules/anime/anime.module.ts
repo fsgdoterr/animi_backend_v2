@@ -9,5 +9,6 @@ import { GenreModule } from '../genre/genre.module';
     imports: [ImageModule, AuthModule, GenreModule],
     controllers: [AnimeController],
     providers: [AnimeService],
+    exports: [AnimeService],
 })
 export class AnimeModule {}
